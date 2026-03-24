@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OCE RAG 知识库</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0e1a;
+      --panel: rgba(20, 30, 50, 0.9);
+      --panel2: rgba(30, 45, 70, 0.7);
+      --line: rgba(100, 150, 255, 0.2);
+      --text: #e8f0ff;
+      --muted: #7a8db8;
+      --acc: #00d4ff;
+      --acc2: #7b2cff;
+      --warn: #ffaa00;
+      --ok: #00ff88;
+    }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    
+    /* 背景效果 */
+    .bg-effects {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    
+    .bg-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.2;
+      animation: float 20s ease-in-out infinite;
+    }
+    
+    .bg-orb:nth-child(1) {
+      width: 500px; height: 500px;
+      background: var(--acc);
+      top: -200px; right: -100px;
+    }
+    
+    .bg-orb:nth-child(2) {
+      width: 400px; height: 400px;
+      background: var(--acc2);
+      bottom: -100px; left: -100px;
+      animation-delay: -10s;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(30px, -30px) scale(1.05); }
+    }
+    
+    .content { position: relative; z-index: 1; }
+    
+    /* 顶部 */
+    .header {
+      background: var(--panel);
+      backdrop-filter: blur(20px);
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+    
+    .logo {
+      font-family: 'Orbitron', monospace;
+      font-size: 1.5rem;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .logo-oce {
+      background: linear-gradient(135deg, #f59e0b, #fbbf24);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .logo-rag {
+      background: linear-gradient(135deg, #00d4ff, #7b2cff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .stats {
+      display: flex;
+      gap: 20px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    
+    .stat-item {
+      background: var(--panel2);
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+    }
+    
+    .stat-value {
+      color: var(--acc);
+      font-weight: 700;
+      margin-right: 5px;
+    }
+    
+    /* 主布局 */
+    .main {
+      display: grid;
+      grid-template-columns: 280px 1fr 350px;
+      gap: 20px;
+      padding: 20px;
+      height: calc(100vh - 80px);
+    }
+    
+    @media (max-width: 1200px) {
+      .main { grid-template-columns: 1fr; height: auto; }
+    }
+    
+    /* 侧边栏 */
+    .sidebar {
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      overflow-y: auto;
+    }
+    
+    .sidebar-title {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 15px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .category-list {
+      list-style: none;
+    }
+    
+    .category-item {
+      padding: 12px 15px;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .category-item:hover {
+      background: var(--panel2);
+    }
+    
+    .category-item.active {
+      background: linear-gradient(135deg, var(--acc), var(--acc2));
+      color: white;
+    }
+    
+    .category-icon { font-size: 1.2rem; }
+    .category-name { flex: 1; }
+    .category-count {
+      font-size: 11px;
+      background: var(--panel2);
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    
+    /* 中间内容区 */
+    .content-area {
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      overflow-y: auto;
+    }
+    
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    /* 知识卡片 */
+    .knowledge-card {
+      background: var(--panel2);
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 12px;
+      border-left: 3px solid var(--acc);
+      transition: all 0.2s;
+    }
+    
+    .knowledge-card:hover {
+      background: rgba(0, 212, 255, 0.1);
+    }
+    
+    .knowledge-title {
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--acc);
+    }
+    
+    .knowledge-content {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    
+    .knowledge-meta {
+      font-size: 11px;
+      color: var(--line);
+      margin-top: 8px;
+    }
+    
+    /* 右侧聊天区 */
+    .chat-area {
+      background: var(--panel);
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 15px;
+    }
+    
+    .message {
+      padding: 12px 15px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    
+    .message-user {
+      background: var(--panel2);
+      margin-left: 20px;
+    }
+    
+    .message-ai {
+      background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(123, 44, 255, 0.1));
+      margin-right: 20px;
+      border-left: 3px solid var(--acc);
+    }
+    
+    .message-query {
+      font-weight: 600;
+      color: var(--acc);
+      margin-bottom: 5px;
+    }
+    
+    .chat-input-area {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .chat-input {
+      flex: 1;
+      padding: 12px 15px;
+      border-radius: 25px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+    
+    .chat-input:focus {
+      outline: none;
+      border-color: var(--acc);
+    }
+    
+    .chat-btn {
+      padding: 12px 20px;
+      border-radius: 25px;
+      border: none;
+      background: linear-gradient(135deg, var(--acc), var(--acc2));
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .chat-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3);
+    }
+    
+    /* 学习面板 */
+    .learn-panel {
+      background: var(--panel2);
+      border-radius: 12px;
+      padding: 15px;
+      margin-top: 15px;
+      border: 1px dashed var(--line);
+    }
+    
+    .learn-title {
+      font-weight: 600;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: var(--warn);
+    }
+    
+    .learn-input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+    
+    .learn-input:focus {
+      outline: none;
+      border-color: var(--warn);
+    }
+    
+    .learn-btn {
+      width: 100%;
+      padding: 8px;
+      border-radius: 8px;
+      border: none;
+      background: var(--warn);
+      color: var(--bg);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    
+    /* 标签 */
+    .tag {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 15px;
+      font-size: 10px;
+      margin-right: 5px;
+    }
+    
+    .tag-pm { background: rgba(59, 130, 246, 0.3); color: #60a5fa; }
+    .tag-product { background: rgba(168, 85, 247, 0.3); color: #c084fc; }
+    .tag-mba { background: rgba(16, 185, 129, 0.3); color: #34d399; }
+    .tag-philosophy { background: rgba(251, 191, 36, 0.3); color: #fbbf24; }
+    .tag-history { background: rgba(239, 68, 68, 0.3); color: #f87171; }
+    
+    /* 加载动画 */
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: var(--muted);
+    }
+    
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--line);
+      border-top-color: var(--acc);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+    }
+    
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <!-- 背景 -->
+  <div class="bg-effects">
+    <div class="bg-orb"></div>
+    <div class="bg-orb"></div>
+  </div>
+  
+  <div class="content">
+    <!-- 顶部 -->
+    <div class="header">
+      <div class="logo">
+        <span class="logo-oce">OCE</span>
+        <span class="logo-rag">RAG 知识库</span>
+      </div>
+      <div class="stats">
+        <div class="stat-item">
+          <span class="stat-value" id="stat-docs">-</span>文档
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="stat-chunks">-</span>知识块
+        </div>
+        <div class="stat-item">
+          <span class="stat-value" id="stat-cats">-</span>领域
+        </div>
+      </div>
+    </div>
+    
+    <!-- 主内容 -->
+    <div class="main">
+      <!-- 左侧：知识分类 -->
+      <div class="sidebar">
+        <div class="sidebar-title">📚 知识领域</div>
+        <ul class="category-list" id="category-list">
+          <li class="category-item active" data-cat="">
+            <span class="category-icon">🌟</span>
+            <span class="category-name">全部</span>
+            <span class="category-count" id="cat-all">0</span>
+          </li>
+        </ul>
+      </div>
+      
+      <!-- 中间：知识库 -->
+      <div class="content-area">
+        <div class="section-title">📖 知识库内容</div>
+        <div id="knowledge-list">
+          <div class="loading"><span class="spinner"></span>加载中...</div>
+        </div>
+      </div>
+      
+      <!-- 右侧：对话与学习 -->
+      <div class="chat-area">
+        <div class="section-title">💬 智能问答</div>
+        <div class="chat-messages" id="chat-messages">
+          <div class="message message-ai">
+            你好！我是OCE RAG知识库助手。<br><br>
+            我可以从知识库中检索相关内容来回答你的问题。<br><br>
+            请在下方输入问题，我会结合知识库进行回答。
+          </div>
+        </div>
+        <div class="chat-input-area">
+          <input class="chat-input" id="chat-input" placeholder="输入问题，按回车发送..." onkeypress="if(event.key==='Enter')sendChat()">
+          <button class="chat-btn" onclick="sendChat()">发送</button>
+        </div>
+        
+        <!-- 学习面板 -->
+        <div class="learn-panel">
+          <div class="learn-title">🧠 学习新知识</div>
+          <input class="learn-input" id="learn-title" placeholder="知识标题">
+          <input class="learn-input" id="learn-category" placeholder="分类ID (如: pm, mba, philosophy)">
+          <textarea class="learn-input" id="learn-content" placeholder="知识内容..." rows="3"></textarea>
+          <button class="learn-btn" onclick="learn()">提交学习</button>
+        </div>
+        
+        <!-- 文件上传面板 -->
+        <div class="learn-panel" style="margin-top: 15px;">
+          <div class="learn-title">📄 文件上传学习</div>
+          <div style="margin-bottom: 10px;">
+            <input type="file" id="file-input" accept=".txt,.md,.html,.json,.csv,.docx,.pdf" style="display:none" onchange="fileSelected()">
+            <button class="learn-btn" style="background: var(--acc);" onclick="document.getElementById('file-input').click()">📁 选择文件</button>
+            <span id="file-name" style="margin-left: 10px; font-size: 12px; color: var(--muted);">支持: TXT MD HTML JSON CSV DOCX PDF</span>
+          </div>
+          <input class="learn-input" id="upload-category" placeholder="分类ID (如: pm, mba, philosophy)">
+          <button class="learn-btn" style="background: var(--ok);" onclick="uploadFile()">📤 上传并学习</button>
+          <div id="upload-progress" style="margin-top: 10px; font-size: 12px; color: var(--muted);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let categories = [];
+    let currentCat = '';
+    
+    // 加载知识库信息
+    async function loadKBInfo() {
+      try {
+        const res = await fetch('/api/kb');
+        console.log("Response:", data);
+        const data = await res.json();
+        
+        categories = data.categories;
+        
+        // 更新统计
+        document.getElementById('stat-docs').textContent = data.stats.total_docs;
+        document.getElementById('stat-chunks').textContent = data.stats.total_chunks;
+        document.getElementById('stat-cats').textContent = data.stats.categories_count;
+        document.getElementById('cat-all').textContent = data.stats.total_chunks;
+        
+        // 渲染分类
+        renderCategories();
+        
+        // 加载知识
+        loadKnowledge('');
+      } catch(e) {
+        console.error(e);
+      }
+    }
+    
+    // 渲染分类
+    function renderCategories() {
+      const list = document.getElementById('category-list');
+      list.innerHTML = `
+        <li class="category-item ${currentCat === '' ? 'active' : ''}" data-cat="" onclick="selectCategory('')">
+          <span class="category-icon">🌟</span>
+          <span class="category-name">全部</span>
+          <span class="category-count" id="cat-all">${document.getElementById('stat-chunks').textContent}</span>
+        </li>
+      `;
+      
+      categories.forEach(cat => {
+        const count = document.querySelectorAll(`[data-category="${cat.id}"]`).length;
+        list.innerHTML += `
+          <li class="category-item ${currentCat === cat.id ? 'active' : ''}" data-cat="${cat.id}" onclick="selectCategory('${cat.id}')">
+            <span class="category-icon">${cat.icon}</span>
+            <span class="category-name">${cat.name}</span>
+            <span class="category-count">${count || '-'}</span>
+          </li>
+        `;
+      });
+    }
+    
+    // 选择分类
+    function selectCategory(cat) {
+      currentCat = cat;
+      document.querySelectorAll('.category-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.cat === cat);
+      });
+      loadKnowledge(cat);
+    }
+    
+    // 加载知识
+    async function loadKnowledge(category) {
+      const container = document.getElementById('knowledge-list');
+      container.innerHTML = '<div class="loading"><span class="spinner"></span>加载中...</div>';
+      
+      try {
+        const url = category ? `/api/search?q=&cat=${category}` : '/api/search?q=';
+        const res = await fetch(url);
+        console.log("Response:", data);
+        const data = await res.json();
+        
+        if (!data.results || data.results.length === 0) {
+          container.innerHTML = '<div class="loading">暂无知识内容</div>';
+          return;
+        }
+        
+        container.innerHTML = data.results.map(r => `
+          <div class="knowledge-card" data-category="${r.category}">
+            <div class="knowledge-title">${esc(r.title)}</div>
+            <div class="knowledge-content">${esc(r.content)}</div>
+            <div class="knowledge-meta">
+              <span class="tag tag-${getTagClass(r.category)}">${getCatName(r.category)}</span>
+              相似度: ${r.score}
+            </div>
+          </div>
+        `).join('');
+      } catch(e) {
+        container.innerHTML = '<div class="loading">加载失败</div>';
+      }
+    }
+    
+    // 发送聊天
+    async function sendChat() {
+      const input = document.getElementById('chat-input');
+      const query = input.value.trim();
+      if(!query) {
+        alert('请输入问题');
+        return;
+      }
+      
+      // 添加用户消息
+      const messages = document.getElementById('chat-messages');
+      const userMsg = document.createElement('div');
+      userMsg.className = 'message message-user';
+      userMsg.innerHTML = '<div class="message-query">你:</div>' + esc(query);
+      messages.appendChild(userMsg);
+      
+      // 添加AI等待消息
+      const aiMsg = document.createElement('div');
+      aiMsg.className = 'message message-ai';
+      aiMsg.id = 'ai-response';
+      aiMsg.innerHTML = '<span class="spinner"></span>思考中...';
+      messages.appendChild(aiMsg);
+      
+      input.value = '';
+      messages.scrollTop = messages.scrollHeight;
+      
+      try {
+        const formData = new FormData();
+        formData.append('query', query);
+        
+        console.log('Sending query:', query);
+        
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          body: formData
+        });
+        
+        console.log('Response status:', res.status);
+        
+        const data = await res.json();
+        console.log('Response data:', data);
+        
+        if(data.error) {
+          aiMsg.innerHTML = '<span style="color:red">错误: ' + esc(data.error) + '</span>';
+          return;
+        }
+        
+        if(!data.answer) {
+          aiMsg.innerHTML = '<span style="color:orange">未收到回答，请稍后重试</span>';
+          return;
+        }
+        
+        // 替换回答
+        let answerHtml = esc(data.answer).replace(/\n/g, '<br>');
+        if(data.references && data.references.length > 0) {
+          answerHtml += '<div style="margin-top:10px;font-size:11px;color:var(--muted)">参考: ' + data.references.join(', ') + '</div>';
+        }
+        aiMsg.innerHTML = answerHtml;
+        
+        messages.scrollTop = messages.scrollHeight;
+      } catch(e) {
+        console.error('Chat error:', e);
+        aiMsg.innerHTML = '<span style="color:red">回答生成失败: ' + e.message + '</span>';
+      }
+    }
+    
+    // 学习新知识
+    async function learn() {
+      const title = document.getElementById('learn-title').value.trim();
+      const category = document.getElementById('learn-category').value.trim();
+      const content = document.getElementById('learn-content').value.trim();
+      
+      if(!title || !content) {
+        alert('请填写标题和内容');
+        return;
+      }
+      
+      try {
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('category', category || 'general');
+        formData.append('content', content);
+        
+        const res = await fetch('/api/learn', {
+          method: 'POST',
+          body: formData
+        });
+        console.log("Response:", data);
+        const data = await res.json();
+        
+        if(data.success) {
+          alert('✅ ' + data.message);
+          // 清空表单
+          document.getElementById('learn-title').value = '';
+          document.getElementById('learn-category').value = '';
+          document.getElementById('learn-content').value = '';
+          // 刷新知识库
+          loadKBInfo();
+        } else {
+          alert('❌ ' + (data.error || '学习失败'));
+        }
+      } catch(e) {
+        alert('❌ 学习失败');
+      }
+    }
+    
+    // 文件上传相关
+    let selectedFile = null;
+    
+    function fileSelected() {
+      const input = document.getElementById('file-input');
+      if(input.files && input.files[0]) {
+        selectedFile = input.files[0];
+        document.getElementById('file-name').textContent = '已选择: ' + selectedFile.name;
+      }
+    }
+    
+    async function uploadFile() {
+      if(!selectedFile) {
+        alert('请先选择文件');
+        return;
+      }
+      
+      const category = document.getElementById('upload-category').value.trim() || 'general';
+      const progress = document.getElementById('upload-progress');
+      
+      progress.innerHTML = '<span class="spinner"></span> 正在解析文件...';
+      
+      try {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        formData.append('category', category);
+        
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        console.log("Response:", data);
+        const data = await res.json();
+        
+        if(data.success) {
+          progress.innerHTML = '✅ ' + data.message + ' (生成' + data.chunks + '个知识块)';
+          // 清空
+          selectedFile = null;
+          document.getElementById('file-input').value = '';
+          document.getElementById('file-name').textContent = '支持: TXT MD HTML JSON CSV DOCX PDF';
+          // 刷新知识库
+          loadKBInfo();
+        } else {
+          progress.innerHTML = '❌ ' + (data.error || '上传失败');
+        }
+      } catch(e) {
+        progress.innerHTML = '❌ 上传失败: ' + e.message;
+      }
+    }
+    
+    // 工具函数
+    function esc(str) {
+      if(!str) return '';
+      return String(str).replace(/[<>"'&]/g, c => ({"<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;","&":"&amp;"}[c]));
+    }
+    
+    function getCatName(id) {
+      const cat = categories.find(c => c.id === id);
+      return cat ? cat.name : id;
+    }
+    
+    function getTagClass(id) {
+      const map = { pm: 'pm', product: 'product', mba: 'mba', maoxuan: 'philosophy', yangming: 'philosophy', bingfa: 'philosophy', philosophy: 'philosophy', business: 'mba', history: 'history' };
+      return map[id] || 'mba';
+    }
+    
+    // 初始化
+    loadKBInfo();
+  </script>
+</body>
+</html>

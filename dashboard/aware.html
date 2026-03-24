@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OCE 自主感知系统</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --panel2: #334155;
+      --line: #475569;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --acc: #3b82f6;
+      --warn: #f59e0b;
+      --ok: #10b981;
+      --danger: #ef4444;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Noto Sans SC', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    
+    /* 顶部导航 */
+    .header { background: var(--panel); padding: 15px 30px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 100; }
+    .logo { font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, #f59e0b, #fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header-actions { display: flex; gap: 10px; }
+    .btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
+    .btn-primary { background: var(--acc); color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-success { background: var(--ok); color: white; }
+    .btn-danger { background: var(--danger); color: white; }
+    .btn-outline { background: transparent; border: 1px solid var(--line); color: var(--muted); }
+    .btn-outline:hover { border-color: var(--text); color: var(--text); }
+    
+    /* 标签页 */
+    .tabs { display: flex; gap: 5px; padding: 15px 30px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; }
+    .tab { padding: 10px 20px; border-radius: 8px 8px 0 0; cursor: pointer; color: var(--muted); background: transparent; border: 1px solid transparent; white-space: nowrap; transition: all 0.2s; }
+    .tab:hover { color: var(--text); background: var(--panel2); }
+    .tab.active { color: var(--text); background: var(--bg); border-color: var(--line); border-bottom-color: var(--bg); }
+    .tab-badge { background: var(--acc); color: white; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin-left: 5px; }
+    
+    /* 主内容 */
+    .main { padding: 20px 30px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    
+    /* 卡片 */
+    .card { background: var(--panel); border-radius: 12px; padding: 20px; margin-bottom: 15px; border: 1px solid var(--line); }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+    .card-title { font-size: 1.1rem; font-weight: 600; }
+    .card-icon { font-size: 1.5rem; margin-right: 10px; }
+    
+    /* 状态标签 */
+    .status { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 500; }
+    .status-pending { background: rgba(245, 158, 11, 0.2); color: var(--warn); }
+    .status-doing { background: rgba(59, 130, 246, 0.2); color: var(--acc); }
+    .status-done { background: rgba(16, 185, 129, 0.2); color: var(--ok); }
+    .status-enabled { background: rgba(16, 185, 129, 0.2); color: var(--ok); }
+    .status-disabled { background: rgba(148, 163, 184, 0.2); color: var(--muted); }
+    
+    /* Focus列表 */
+    .focus-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; background: var(--panel2); margin-bottom: 8px; transition: all 0.2s; }
+    .focus-item:hover { background: var(--line); }
+    .focus-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .focus-dot.pending { background: var(--warn); }
+    .focus-dot.doing { background: var(--acc); animation: pulse 1.5s infinite; }
+    .focus-dot.done { background: var(--ok); }
+    .focus-content { flex: 1; }
+    .focus-title { font-weight: 500; margin-bottom: 3px; }
+    .focus-meta { font-size: 12px; color: var(--muted); }
+    .focus-actions { display: flex; gap: 5px; }
+    
+    /* 触发器 */
+    .trigger-item { display: flex; align-items: center; gap: 15px; padding: 15px; border-radius: 8px; background: var(--panel2); margin-bottom: 10px; }
+    .trigger-icon { font-size: 1.8rem; width: 50px; text-align: center; }
+    .trigger-info { flex: 1; }
+    .trigger-name { font-weight: 600; margin-bottom: 5px; }
+    .trigger-schedule { font-size: 12px; color: var(--muted); font-family: monospace; }
+    .trigger-agent { font-size: 11px; color: var(--acc); margin-top: 3px; }
+    .trigger-time { font-size: 11px; color: var(--muted); text-align: right; min-width: 120px; }
+    
+    /* Reflections */
+    .reflection { padding: 15px; border-radius: 8px; background: var(--panel2); margin-bottom: 10px; border-left: 3px solid var(--acc); }
+    .reflection-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .reflection-agent { font-weight: 600; color: var(--acc); }
+    .reflection-time { font-size: 11px; color: var(--muted); }
+    .reflection-content { font-size: 13px; line-height: 1.6; color: var(--text); }
+    .reflection-expand { color: var(--muted); font-size: 12px; cursor: pointer; margin-top: 8px; }
+    .reflection-tools { display: none; background: var(--bg); padding: 10px; border-radius: 6px; margin-top: 10px; font-family: monospace; font-size: 11px; }
+    .reflection-tools.show { display: block; }
+    
+    /* 审批 */
+    .approval-item { display: flex; align-items: center; gap: 15px; padding: 15px; border-radius: 8px; background: var(--panel2); margin-bottom: 10px; border-left: 3px solid var(--warn); }
+    .approval-icon { font-size: 1.5rem; }
+    .approval-content { flex: 1; }
+    .approval-title { font-weight: 600; margin-bottom: 5px; }
+    .approval-desc { font-size: 12px; color: var(--muted); }
+    .approval-actions { display: flex; gap: 8px; }
+    
+    /* 统计卡片 */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+    .stat-card { background: var(--panel); border-radius: 12px; padding: 20px; text-align: center; border: 1px solid var(--line); }
+    .stat-value { font-size: 2.5rem; font-weight: 700; background: linear-gradient(135deg, #f59e0b, #fbbf24); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .stat-label { font-size: 13px; color: var(--muted); margin-top: 5px; }
+    
+    /* 动画 */
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .header { padding: 10px 15px; flex-wrap: wrap; }
+      .tabs { padding: 10px 15px; }
+      .main { padding: 15px; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .trigger-item { flex-wrap: wrap; }
+      .trigger-time { width: 100%; text-align: left; margin-top: 8px; }
+    }
+    
+    /* 模态框 */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.show { display: flex; }
+    .modal-content { background: var(--panel); border-radius: 12px; padding: 25px; max-width: 500px; width: 90%; border: 1px solid var(--line); }
+    .modal-header { font-size: 1.2rem; font-weight: 600; margin-bottom: 20px; }
+    .form-group { margin-bottom: 15px; }
+    .form-label { display: block; margin-bottom: 6px; font-size: 13px; color: var(--muted); }
+    .form-input { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 14px; }
+    .form-input:focus { outline: none; border-color: var(--acc); }
+    .form-select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font-size: 14px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <!-- 顶部导航 -->
+  <div class="header">
+    <div class="logo">🧠 OCE 自主感知系统</div>
+    <div class="header-actions">
+      <button class="btn btn-outline" onclick="refreshAll()">🔄 刷新</button>
+      <button class="btn btn-primary" onclick="showAddFocus()">+ 添加Focus</button>
+      <button class="btn btn-success" onclick="showAddTrigger()">+ 添加触发器</button>
+    </div>
+  </div>
+  
+  <!-- 标签页 -->
+  <div class="tabs">
+    <div class="tab active" data-panel="dashboard">📊 总览</div>
+    <div class="tab" data-panel="focus">📋 Focus Items <span class="tab-badge" id="focus-total">0</span></div>
+    <div class="tab" data-panel="triggers">⏰ 触发器 <span class="tab-badge" id="trigger-total">0</span></div>
+    <div class="tab" data-panel="reflections">💭 Reflections</div>
+    <div class="tab" data-panel="approvals">⚠️ 待审批 <span class="tab-badge" id="approval-total">0</span></div>
+    <div class="tab" data-panel="logs">📜 执行日志</div>
+  </div>
+  
+  <!-- 主内容 -->
+  <div class="main">
+    <!-- 总览面板 -->
+    <div class="panel active" id="panel-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-pending">0</div>
+          <div class="stat-label">待处理</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-doing">0</div>
+          <div class="stat-label">进行中</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-done">0</div>
+          <div class="stat-label">已完成</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-triggers">0</div>
+          <div class="stat-label">活跃触发器</div>
+        </div>
+      </div>
+      
+      <!-- 最近活动 -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📈 最近活动</span>
+        </div>
+        <div id="recent-activity">
+          <div style="color: var(--muted); text-align: center; padding: 20px;">暂无活动记录</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Focus Items面板 -->
+    <div class="panel" id="panel-focus">
+      <!-- 待处理 -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📋 待处理 <span class="status status-pending" id="pending-count">0</span></span>
+        </div>
+        <div id="focus-pending"></div>
+      </div>
+      
+      <!-- 进行中 -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🔄 进行中 <span class="status status-doing" id="doing-count">0</span></span>
+        </div>
+        <div id="focus-doing"></div>
+      </div>
+      
+      <!-- 已完成 -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">✅ 已完成 <span class="status status-done" id="done-count">0</span></span>
+        </div>
+        <div id="focus-done"></div>
+      </div>
+    </div>
+    
+    <!-- 触发器面板 -->
+    <div class="panel" id="panel-triggers">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">⏰ 定时触发器</span>
+        </div>
+        <div id="trigger-list"></div>
+      </div>
+    </div>
+    
+    <!-- Reflections面板 -->
+    <div class="panel" id="panel-reflections">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">💭 AI 自主推理记录</span>
+        </div>
+        <div id="reflection-list">
+          <div style="color: var(--muted); text-align: center; padding: 20px;">暂无推理记录</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 待审批面板 -->
+    <div class="panel" id="panel-approvals">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">⚠️ 待审批操作</span>
+        </div>
+        <div id="approval-list">
+          <div style="color: var(--muted); text-align: center; padding: 20px;">暂无待审批项</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 执行日志面板 -->
+    <div class="panel" id="panel-logs">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📜 触发器执行日志</span>
+        </div>
+        <div id="log-list">
+          <div style="color: var(--muted); text-align: center; padding: 20px;">暂无日志</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 添加Focus模态框 -->
+  <div class="modal" id="modal-focus">
+    <div class="modal-content">
+      <div class="modal-header">添加 Focus Item</div>
+      <div class="form-group">
+        <label class="form-label">标题</label>
+        <input class="form-input" id="focus-title" placeholder="例如：每日17时汇报待完成任务">
+      </div>
+      <div class="form-group">
+        <label class="form-label">负责Agent</label>
+        <select class="form-select" id="focus-agent">
+          <option value="助理">助理</option>
+          <option value="运维部">运维部</option>
+          <option value="产品部">产品部</option>
+          <option value="技术部">技术部</option>
+          <option value="经营管理部">经营管理部</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">初始状态</label>
+        <select class="form-select" id="focus-status">
+          <option value="pending">待处理</option>
+          <option value="doing">进行中</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('modal-focus')">取消</button>
+        <button class="btn btn-primary" onclick="saveFocus()">保存</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 添加触发器模态框 -->
+  <div class="modal" id="modal-trigger">
+    <div class="modal-content">
+      <div class="modal-header">添加触发器</div>
+      <div class="form-group">
+        <label class="form-label">名称</label>
+        <input class="form-input" id="trigger-name" placeholder="例如：每日17时汇报">
+      </div>
+      <div class="form-group">
+        <label class="form-label">类型</label>
+        <select class="form-select" id="trigger-type" onchange="updateScheduleInput()">
+          <option value="cron">Cron 定时</option>
+          <option value="interval">间隔执行</option>
+          <option value="once">一次性</option>
+          <option value="poll">HTTP轮询</option>
+          <option value="webhook">Webhook</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">执行计划</label>
+        <input class="form-input" id="trigger-schedule" placeholder="0 17 * * *">
+        <div style="font-size: 11px; color: var(--muted); margin-top: 5px;">cron: 分 时 日 月 周 | interval: 分钟数 | once: YYYY-MM-DD HH:MM</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">负责Agent</label>
+        <select class="form-select" id="trigger-agent">
+          <option value="助理">助理</option>
+          <option value="运维部">运维部</option>
+          <option value="产品部">产品部</option>
+          <option value="技术部">技术部</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('modal-trigger')">取消</button>
+        <button class="btn btn-primary" onclick="saveTrigger()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 数据存储
+    let awareData = {
+      focus_items: [],
+      triggers: [],
+      reflections: [],
+      approvals: [],
+      logs: []
+    };
+    
+    // 初始化
+    async function init() {
+      await loadData();
+      renderAll();
+    }
+    
+    // 加载数据
+    async function loadData() {
+      try {
+        const res = await fetch('/data/aware.json');
+        awareData = await res.json();
+        // 确保必要字段
+        if(!awareData.reflections) awareData.reflections = [];
+        if(!awareData.approvals) awareData.approvals = [];
+        if(!awareData.logs) awareData.logs = [];
+      } catch(e) {
+        console.log('loadData error', e);
+      }
+    }
+    
+    // 渲染全部
+    function renderAll() {
+      renderDashboard();
+      renderFocus();
+      renderTriggers();
+      renderReflections();
+      renderApprovals();
+      renderLogs();
+    }
+    
+    // 渲染总览
+    function renderDashboard() {
+      const pending = awareData.focus_items.filter(f => f.status === 'pending');
+      const doing = awareData.focus_items.filter(f => f.status === 'doing');
+      const done = awareData.focus_items.filter(f => f.status === 'done');
+      const triggers = awareData.triggers.filter(t => t.enabled);
+      
+      document.getElementById('stat-pending').textContent = pending.length;
+      document.getElementById('stat-doing').textContent = doing.length;
+      document.getElementById('stat-done').textContent = done.length;
+      document.getElementById('stat-triggers').textContent = triggers.length;
+      
+      // 最近活动
+      const activities = [...awareData.logs].reverse().slice(0, 5);
+      const html = activities.length ? activities.map(l => `
+        <div style="padding: 10px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.2rem">${getTriggerIcon(l.type)}</span>
+          <div style="flex: 1">
+            <div style="font-weight: 500">${esc(l.name)}</div>
+            <div style="font-size: 11px; color: var(--muted)">${l.time || ''}</div>
+          </div>
+          <span class="status ${l.success ? 'status-done' : 'status-pending'}">${l.success ? '成功' : '失败'}</span>
+        </div>
+      `).join('') : '<div style="color: var(--muted); text-align: center; padding: 20px;">暂无活动记录</div>';
+      document.getElementById('recent-activity').innerHTML = html;
+    }
+    
+    // 渲染Focus
+    function renderFocus() {
+      const pending = awareData.focus_items.filter(f => f.status === 'pending');
+      const doing = awareData.focus_items.filter(f => f.status === 'doing');
+      const done = awareData.focus_items.filter(f => f.status === 'done');
+      
+      document.getElementById('focus-total').textContent = awareData.focus_items.length;
+      document.getElementById('pending-count').textContent = pending.length;
+      document.getElementById('doing-count').textContent = doing.length;
+      document.getElementById('done-count').textContent = done.length;
+      
+      document.getElementById('focus-pending').innerHTML = pending.length ? pending.map(f => renderFocusItem(f)).join('') : '<div style="color: var(--muted); padding: 15px;">暂无待处理事项</div>';
+      document.getElementById('focus-doing').innerHTML = doing.length ? doing.map(f => renderFocusItem(f)).join('') : '<div style="color: var(--muted); padding: 15px;">暂无进行中事项</div>';
+      document.getElementById('focus-done').innerHTML = done.length ? done.map(f => renderFocusItem(f)).join('') : '<div style="color: var(--muted); padding: 15px;">暂无已完成事项</div>';
+    }
+    
+    function renderFocusItem(f) {
+      return `
+        <div class="focus-item">
+          <div class="focus-dot ${f.status}"></div>
+          <div class="focus-content">
+            <div class="focus-title">${esc(f.title)}</div>
+            <div class="focus-meta">${f.agent} · ${f.created_at || ''}</div>
+          </div>
+          <div class="focus-actions">
+            ${f.status === 'pending' ? `<button class="btn btn-primary" style="padding: 4px 10px; font-size: 11px;" onclick="updateFocusStatus('${f.id}', 'doing')">开始</button>` : ''}
+            ${f.status === 'doing' ? `<button class="btn btn-success" style="padding: 4px 10px; font-size: 11px;" onclick="updateFocusStatus('${f.id}', 'done')">完成</button>` : ''}
+            <button class="btn btn-outline" style="padding: 4px 10px; font-size: 11px;" onclick="deleteFocus('${f.id}')">删除</button>
+          </div>
+        </div>
+      `;
+    }
+    
+    // 渲染触发器
+    function renderTriggers() {
+      document.getElementById('trigger-total').textContent = awareData.triggers.length;
+      
+      const html = awareData.triggers.length ? awareData.triggers.map(t => `
+        <div class="trigger-item">
+          <div class="trigger-icon">${getTriggerIcon(t.type)}</div>
+          <div class="trigger-info">
+            <div class="trigger-name">${esc(t.name)}</div>
+            <div class="trigger-schedule">${t.schedule || t.interval_minutes + '分钟'}</div>
+            <div class="trigger-agent">👤 ${t.agent}</div>
+          </div>
+          <div class="trigger-time">
+            <div>下次: ${t.next_run || '-'}</div>
+            <div style="font-size: 10px; color: var(--muted)">上次: ${t.last_run || '-'}</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 5px;">
+            <span class="status ${t.enabled ? 'status-enabled' : 'status-disabled'}">${t.enabled ? '运行中' : '已停止'}</span>
+            <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px;" onclick="toggleTrigger('${t.id}')">${t.enabled ? '停止' : '启动'}</button>
+          </div>
+        </div>
+      `).join('') : '<div style="color: var(--muted); text-align: center; padding: 20px;">暂无触发器，点击顶部按钮添加</div>';
+      
+      document.getElementById('trigger-list').innerHTML = html;
+    }
+    
+    function getTriggerIcon(type) {
+      const icons = { cron: '⏰', interval: '🔁', once: '🎯', poll: '🔍', webhook: '📨', on_message: '💬' };
+      return icons[type] || '⏰';
+    }
+    
+    // 渲染Reflections
+    function renderReflections() {
+      const html = awareData.reflections.length ? awareData.reflections.map(r => `
+        <div class="reflection">
+          <div class="reflection-header">
+            <span class="reflection-agent">🤖 ${esc(r.agent)}</span>
+            <span class="reflection-time">${r.time || ''}</span>
+          </div>
+          <div class="reflection-content">${esc(r.content)}</div>
+          ${r.tools ? `<div class="reflection-expand" onclick="toggleTools(this)">🔧 查看工具调用</div><div class="reflection-tools">${esc(r.tools)}</div>` : ''}
+        </div>
+      `).join('') : '<div style="color: var(--muted); text-align: center; padding: 20px;">暂无推理记录</div>';
+      document.getElementById('reflection-list').innerHTML = html;
+    }
+    
+    // 渲染审批
+    function renderApprovals() {
+      document.getElementById('approval-total').textContent = awareData.approvals.length;
+      
+      const html = awareData.approvals.length ? awareData.approvals.map(a => `
+        <div class="approval-item">
+          <div class="approval-icon">⚠️</div>
+          <div class="approval-content">
+            <div class="approval-title">${esc(a.title)}</div>
+            <div class="approval-desc">${esc(a.desc)} · ${a.agent}</div>
+          </div>
+          <div class="approval-actions">
+            <button class="btn btn-success" style="padding: 6px 12px; font-size: 12px;" onclick="approveAction('${a.id}')">批准</button>
+            <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px;" onclick="rejectAction('${a.id}')">拒绝</button>
+          </div>
+        </div>
+      `).join('') : '<div style="color: var(--muted); text-align: center; padding: 20px;">暂无待审批项</div>';
+      document.getElementById('approval-list').innerHTML = html;
+    }
+    
+    // 渲染日志
+    function renderLogs() {
+      const html = awareData.logs.length ? awareData.logs.slice(-20).reverse().map(l => `
+        <div style="padding: 10px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 1.2rem">${getTriggerIcon(l.type)}</span>
+          <div style="flex: 1">
+            <div style="font-weight: 500">${esc(l.name)}</div>
+            <div style="font-size: 11px; color: var(--muted)">${l.message || ''}</div>
+          </div>
+          <div style="text-align: right">
+            <span class="status ${l.success ? 'status-done' : 'status-pending'}">${l.success ? '✓' : '✗'}</span>
+            <div style="font-size: 10px; color: var(--muted)">${l.time || ''}</div>
+          </div>
+        </div>
+      `).join('') : '<div style="color: var(--muted); text-align: center; padding: 20px;">暂无日志</div>';
+      document.getElementById('log-list').innerHTML = html;
+    }
+    
+    // 标签页切换
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
+      });
+    });
+    
+    // 模态框
+    function showAddFocus() { document.getElementById('modal-focus').classList.add('show'); }
+    function showAddTrigger() { document.getElementById('modal-trigger').classList.add('show'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+    
+    function updateScheduleInput() {
+      const type = document.getElementById('trigger-type').value;
+      const input = document.getElementById('trigger-schedule');
+      if(type === 'cron') input.placeholder = '0 17 * * *';
+      else if(type === 'interval') input.placeholder = '5';
+      else if(type === 'once') input.placeholder = '2026-03-26 17:00';
+    }
+    
+    // 保存Focus
+    function saveFocus() {
+      const title = document.getElementById('focus-title').value;
+      const agent = document.getElementById('focus-agent').value;
+      const status = document.getElementById('focus-status').value;
+      
+      if(!title) return alert('请输入标题');
+      
+      awareData.focus_items.push({
+        id: 'focus_' + Date.now(),
+        title, agent, status,
+        created_at: new Date().toISOString().replace('T', ' ').substring(0, 19)
+      });
+      
+      saveData();
+      closeModal('modal-focus');
+      renderAll();
+      alert('✅ Focus已添加');
+    }
+    
+    // 保存触发器
+    function saveTrigger() {
+      const name = document.getElementById('trigger-name').value;
+      const type = document.getElementById('trigger-type').value;
+      const schedule = document.getElementById('trigger-schedule').value;
+      const agent = document.getElementById('trigger-agent').value;
+      
+      if(!name || !schedule) return alert('请填写完整');
+      
+      awareData.triggers.push({
+        id: 'trigger_' + Date.now(),
+        name, type, agent,
+        schedule,
+        interval_minutes: type === 'interval' ? parseInt(schedule) : null,
+        enabled: true,
+        last_run: null,
+        next_run: calculateNextRun(type, schedule)
+      });
+      
+      saveData();
+      closeModal('modal-trigger');
+      renderAll();
+      alert('✅ 触发器已添加');
+    }
+    
+    function calculateNextRun(type, schedule) {
+      const now = new Date();
+      if(type === 'cron') {
+        // 简单处理：返回次日相同时间
+        return now.toISOString().substring(0, 10) + ' 预计明日';
+      }
+      if(type === 'interval') {
+        return now.toISOString().substring(0, 16);
+      }
+      return schedule;
+    }
+    
+    // 更新Focus状态
+    function updateFocusStatus(id, status) {
+      const f = awareData.focus_items.find(x => x.id === id);
+      if(f) {
+        f.status = status;
+        if(status === 'done') f.completed_at = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        saveData();
+        renderAll();
+      }
+    }
+    
+    // 删除Focus
+    function deleteFocus(id) {
+      if(confirm('确认删除？')) {
+        awareData.focus_items = awareData.focus_items.filter(f => f.id !== id);
+        saveData();
+        renderAll();
+      }
+    }
+    
+    // 切换触发器
+    function toggleTrigger(id) {
+      const t = awareData.triggers.find(x => x.id === id);
+      if(t) {
+        t.enabled = !t.enabled;
+        saveData();
+        renderAll();
+      }
+    }
+    
+    // 审批操作
+    function approveAction(id) {
+      awareData.approvals = awareData.approvals.filter(a => a.id !== id);
+      saveData();
+      renderAll();
+      alert('✅ 已批准');
+    }
+    
+    function rejectAction(id) {
+      awareData.approvals = awareData.approvals.filter(a => a.id !== id);
+      saveData();
+      renderAll();
+    }
+    
+    // 展开工具
+    function toggleTools(el) {
+      el.nextElementSibling.classList.toggle('show');
+      el.textContent = el.textContent.includes('查看') ? '🔧 收起工具调用' : '🔧 查看工具调用';
+    }
+    
+    // 保存数据
+    
+    async function saveData() {
+      try {
+        await fetch("/data/aware.json", {
+          method: "PUT",
+          body: JSON.stringify(awareData, null, 2)
+        });
+      } catch(e) {
+        console.log("saveData error", e);
+      }
+    }
+    
+    function esc(str) {
+      if(!str) return "";
+      return String(str).replace(/[<>"'&]/g, c => ({"<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;","&":"&amp;"}[c]));
+    }
+    
+    function refreshAll() {
+      loadData().then(renderAll);
+    }
+    
+    init();
+  </script>
+</body>
+</html>
